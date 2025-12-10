@@ -1,5 +1,5 @@
 import Papa from "papaparse";
-import { addDays, addWeeks, isValid, parse, parseISO } from "date-fns";
+import { addDays, addWeeks, isValid, parse, parseISO, startOfWeek } from "date-fns";
 
 /**
  * PUBLIC_INTERFACE
@@ -29,9 +29,12 @@ export function parseCsvToTasks(csvText) {
       const startWeek = toInt(r["Start Week"] || r["StartWeek"] || r["Start_Week"]);
       const endWeek = toInt(r["End Week"] || r["EndWeek"] || r["End_Week"]);
       const durationWeeks = toInt(r["Duration (Weeks)"] || r.Duration || r["Weeks"]);
-      const base = parseBaseDate(r.Base || r["Base Date"]) || startOfYearToday();
+      const baseUnaligned = parseBaseDate(r.Base || r["Base Date"]) || startOfYearToday();
+      // Align base to Monday to match weekly grid in reference
+      const base = startOfWeek(baseUnaligned, { weekStartsOn: 1 });
       if (startWeek && endWeek) {
         start = addWeeks(base, startWeek - 1);
+        // end is exclusive-like; add endWeek then snap to start of that week
         end = addWeeks(base, endWeek);
       } else if (startWeek && durationWeeks) {
         start = addWeeks(base, startWeek - 1);

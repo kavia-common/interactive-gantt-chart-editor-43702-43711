@@ -24,8 +24,8 @@ html, body, #root { height: 100%; }
 .toolbar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
+  gap: 10px;
+  padding: 10px 16px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   box-shadow: var(--shadow);
@@ -90,15 +90,35 @@ html, body, #root { height: 100%; }
   display: grid;
   grid-template-columns: 260px 1fr;
   border-bottom: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(37,99,235,0.08), rgba(249,250,251,1));
+  background: #1E3A8A; /* deep blue band similar to reference top */
+  color: #fff;
 }
 
 .gantt-header .left {
   padding: 10px 12px;
   font-size: 12px;
   font-weight: 600;
+  color: #E5E7EB;
+  border-right: 1px solid rgba(255,255,255,0.2);
+  background: #1E3A8A;
+}
+>>>>>>> REPLACE   
+```
+
+````edit file="interactive-gantt-chart-editor-43702-43711/gantt_chart_frontend/src/styles/theme.css"      
+<<<<<<< SEARCH
+.gantt-header .timeline {
+  display: flex;
+  padding: 8px 0;
+  font-size: 12px;
   color: var(--muted);
-  border-right: 1px solid var(--border);
+}
+=======
+.gantt-header .timeline {
+  display: flex;
+  padding: 8px 0;
+  font-size: 12px;
+  color: #ffffff;
 }
 
 .gantt-header .timeline {
@@ -118,6 +138,7 @@ html, body, #root { height: 100%; }
 .gantt-left {
   border-right: 1px solid var(--border);
   overflow: auto;
+  background: var(--surface);
 }
 
 .gantt-right {
@@ -125,13 +146,13 @@ html, body, #root { height: 100%; }
   overflow: auto;
   background:
     linear-gradient(90deg, rgba(229,231,235,.6) 1px, transparent 1px) 0 0 / 80px 100%,
-    linear-gradient(180deg, rgba(229,231,235,.6) 1px, transparent 1px) 0 0 / 100% 40px;
+    linear-gradient(180deg, rgba(229,231,235,.6) 1px, transparent 1px) 0 0 / 100% 44px;
 }
 
 .row {
   display: flex;
   align-items: center;
-  height: 40px;
+  height: 44px;
   border-bottom: 1px solid var(--border);
   padding: 0 12px;
   font-size: 14px;
@@ -155,11 +176,12 @@ html, body, #root { height: 100%; }
 
 .bar {
   position: absolute;
-  height: 22px;
-  border-radius: 6px;
-  background: var(--primary);
-  box-shadow: var(--shadow);
-  color: #fff;
+  height: 20px;
+  border-radius: 10px;
+  background: #C7D2FE; /* soft indigo like ref bars */
+  border: 1px solid #A5B4FC;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+  color: #1f2937;
   display: flex;
   align-items: center;
   padding-left: 8px;
@@ -173,8 +195,8 @@ html, body, #root { height: 100%; }
   position: absolute;
   left: 0; top: 0; bottom: 0;
   width: 0%;
-  background: rgba(245,158,11,0.9);
-  border-radius: 6px 0 0 6px;
+  background: rgba(37,99,235,0.35);
+  border-radius: 10px 0 0 10px;
   z-index: 0;
 }
 
@@ -203,15 +225,17 @@ html, body, #root { height: 100%; }
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: 80px;
-  align-items: end;
+  align-items: center;
 }
 
 .timeline-tick {
   text-align: center;
-  font-size: 11px;
-  color: var(--muted);
-  padding-bottom: 4px;
-  border-left: 1px solid var(--border);
+  font-size: 12px;
+  color: #ffffff;
+  padding: 6px 0;
+  border-left: 1px solid rgba(255,255,255,0.25);
+  font-weight: 600;
+  letter-spacing: 0.2px;
 }
 
 .info {

@@ -1,13 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as d3 from "d3";
-import { addDays, differenceInCalendarDays, format } from "date-fns";
-import { daysBetweenInclusive, fitDomainToTasks, makeTimeScale } from "../utils/time";
+import { addDays, differenceInCalendarDays, format, startOfDay } from "date-fns";
+import { daysBetweenInclusive, fitDomainToTasks, makeTimeScale, buildWeeklyTicks, roundDomainToWeeks } from "../utils/time";
 
-// Dimensions
-const ROW_HEIGHT = 40;
-const BAR_HEIGHT = 22;
+// Dimensions tuned to reference
+const ROW_HEIGHT = 44;
+const BAR_HEIGHT = 20;
 const LEFT_COL_WIDTH = 260;
-const DAY_COL_WIDTH = 80;
+// Each week column ~80px like reference
+const WEEK_COL_WIDTH = 80;
 
 /**
  * PUBLIC_INTERFACE
@@ -37,25 +38,17 @@ export default function GanttChart({
 
   const [width, height] = useContainerSize(wrapperRef);
   const timelineWidth = Math.max(LEFT_COL_WIDTH, width - LEFT_COL_WIDTH);
-  const chartHeight = Math.max(tasks.length * ROW_HEIGHT, height - 36);
+  const chartHeight = Math.max(tasks.length * ROW_HEIGHT, height - 72);
+
+  // Domain rounded to full weeks to align grid
+  const roundedDomain = useMemo(() => roundDomainToWeeks(domain), [domain]);
 
   const xScale = useMemo(() => {
-    return makeTimeScale(domain[0], domain[1], timelineWidth);
-  }, [domain, timelineWidth]);
+    return makeTimeScale(roundedDomain[0], roundedDomain[1], timelineWidth);
+  }, [roundedDomain, timelineWidth]);
 
-  // Create ticks for days (auto-fit)
-  const days = useMemo(() => {
-    const totalDays = Math.max(1, differenceInCalendarDays(domain[1], domain[0]) + 1);
-    const cols = Math.ceil(timelineWidth / DAY_COL_WIDTH);
-    const step = Math.max(1, Math.floor(totalDays / cols));
-    const arr = [];
-    let d = new Date(domain[0]);
-    while (d <= domain[1]) {
-      arr.push(new Date(d));
-      d = addDays(d, step);
-    }
-    return arr;
-  }, [domain, timelineWidth]);
+  // Build weekly ticks for header/grid
+  const weeks = useMemo(() => buildWeeklyTicks(roundedDomain), [roundedDomain]);
 
   // Drag logic
   const dragState = useRef({ type: null, taskId: null, offsetMs: 0 });
@@ -86,21 +79,22 @@ export default function GanttChart({
 
     const px = e.clientX - (svgRef.current?.getBoundingClientRect().left || 0);
     const pxClamped = Math.max(0, Math.min(timelineWidth, px - state.offsetPx));
-    const dateAtCursor = xScale.invert(pxClamped);
+    // Snap to day to match grid
+    const dateAtCursor = startOfDay(xScale.invert(pxClamped));
     if (state.type === "move") {
       const duration = differenceInCalendarDays(task.end, task.start);
-      const newStart = startOfDay(dateAtCursor);
+      const newStart = dateAtCursor;
       const newEnd = addDays(newStart, Math.max(1, duration));
       updateTask(task.id, () => ({ start: newStart, end: newEnd }));
     } else if (state.type === "left") {
       // Resize left
-      let newStart = startOfDay(dateAtCursor);
+      let newStart = dateAtCursor;
       if (newStart >= task.end) {
         newStart = addDays(task.end, -1);
       }
       updateTask(task.id, () => ({ start: newStart, end: task.end }));
     } else if (state.type === "right") {
-      let newEnd = startOfDay(dateAtCursor);
+      let newEnd = dateAtCursor;
       if (newEnd <= task.start) {
         newEnd = addDays(task.start, 1);
       }
@@ -133,13 +127,14 @@ export default function GanttChart({
   // Render
   return (
     <div className="gantt-wrapper" ref={wrapperRef}>
+      {/* Tiered header: top blue band with weeks labels, grid aligned */}
       <div className="gantt-header">
         <div className="left">Task</div>
         <div className="timeline">
           <div className="timeline-scale" style={{ width: timelineWidth }}>
-            {days.map((d, i) => (
+            {weeks.map((w, i) => (
               <div key={i} className="timeline-tick">
-                {format(d, "MMM d")}
+                {`W${i + 1}`}
               </div>
             ))}
           </div>
@@ -176,12 +171,52 @@ export default function GanttChart({
 
         <div className="gantt-right">
           <svg ref={svgRef} width={timelineWidth} height={chartHeight}>
-            {/* Bars */}
+            {/* Weekly vertical grid lines */}
+            {weeks.map((w, i) => {
+              const x = xScale(w);
+              return <line key={`v${i}`} x1={x} y1={0} x2={x} y2={chartHeight} stroke="rgba(229,231,235,0.8)" />;
+            })}
+            {/* Horizontal row lines */}
+            {tasks.map((_, idx) => {
+              const y = (idx + 1) * ROW_HEIGHT;
+              return <line key={`h${idx}`} x1={0} y1={y} x2={timelineWidth} y2={y} stroke="rgba(229,231,235,0.8)" />;
+            })}
+
+            {/* Today marker */}
+            {(() => {
+              const today = startOfDay(new Date());
+              if (today >= roundedDomain[0] && today <= roundedDomain[1]) {
+                const x = xScale(today);
+                return <line x1={x} y1={0} x2={x} y2={chartHeight} stroke="#EF4444" strokeWidth="2" strokeDasharray="4 4" />;
+              }
+              return null;
+            })()}
+
+            {/* Bars and milestones */}
             {tasks.map((t, idx) => {
               const y = idx * ROW_HEIGHT + (ROW_HEIGHT - BAR_HEIGHT) / 2;
               const x = xScale(t.start);
               const w = Math.max(8, xScale(t.end) - xScale(t.start));
               const progressWidth = Math.max(0, Math.min(100, t.progress || 0)) / 100 * w;
+              const isMilestone = differenceInCalendarDays(t.end, t.start) <= 0;
+
+              if (isMilestone) {
+                const cx = x + WEEK_COL_WIDTH / 2 * 0 + 0; // center at start day
+                const cy = y + BAR_HEIGHT / 2 + 2;
+                const r = 8;
+                return (
+                  <g key={t.id} transform={`translate(${x}, ${y})`} onMouseDown={(e)=>onMouseDownBar(e,t,"move")}>
+                    <polygon
+                      points={`${0},${cy} ${r},${cy - r} ${0},${cy - 2*r} ${-r},${cy - r}`}
+                      fill="#10B981"
+                      stroke="#0f766e"
+                      strokeWidth="1"
+                    />
+                    <title>{t.name}</title>
+                  </g>
+                );
+              }
+
               return (
                 <g key={t.id} transform={`translate(${x}, ${y})`}>
                   <rect
@@ -245,6 +280,4 @@ function useContainerSize(ref) {
   return size;
 }
 
-function startOfDay(d) {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
-}
+
