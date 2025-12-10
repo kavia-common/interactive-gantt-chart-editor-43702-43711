@@ -1,23 +1,20 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import * as d3 from "d3";
-import { addDays, differenceInCalendarDays, startOfDay } from "date-fns";
-import { daysBetweenInclusive, fitDomainToTasks, makeTimeScale, buildWeeklyTicks, roundDomainToWeeks } from "../utils/time";
+import { differenceInCalendarDays, startOfDay } from "date-fns";
+import { fitDomainToTasks, makeTimeScale, buildWeeklyTicks, roundDomainToWeeks } from "../utils/time";
 
-// Dimensions tuned to reference
-const ROW_HEIGHT = 44;
+const ROW_HEIGHT = 46;
 const BAR_HEIGHT = 20;
 const LEFT_COL_WIDTH = 260;
-// Each week column ~80px like reference
 const WEEK_COL_WIDTH = 80;
 
 /**
  * PUBLIC_INTERFACE
  * GanttChart
- * Renders a Gantt chart with draggable/resizable tasks and inline name editing.
+ * Renders a STATIC (non-editable) Gantt chart using weekly columns and
+ * styling consistent with the provided reference image.
  */
 export default function GanttChart({
   tasks,
-  onTasksChange,
   externalDomain,
   onDomainChange
 }) {
@@ -27,126 +24,43 @@ export default function GanttChart({
   const domain = externalDomain || internalDomain;
 
   useEffect(() => {
-    // Adjust when tasks change
-    if (!externalDomain) {
-      const fit = fitDomainToTasks(tasks);
-      setInternalDomain(fit);
-      onDomainChange?.(fit);
-    }
+    // Adjust domain when tasks change
+    const fit = fitDomainToTasks(tasks);
+    setInternalDomain(fit);
+    onDomainChange?.(fit);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks]);
 
   const [width, height] = useContainerSize(wrapperRef);
 
-  // Compute viewport and virtual canvas dimensions
+  // Basic layout measurements
   const viewportTimelineWidth = Math.max(LEFT_COL_WIDTH, width - LEFT_COL_WIDTH);
   const rowCount = tasks.length || 1;
-  const headerHeight = 36; // matches .timeline-scale height
-  const virtualHeight = headerHeight + rowCount * ROW_HEIGHT;
-  const viewportHeight = Math.max(virtualHeight, Math.max(240, height - 72)); // ensure reasonable min height
+  const headerHeight = 42;
   const chartHeight = rowCount * ROW_HEIGHT;
 
   // Domain rounded to full weeks to align grid
   const roundedDomain = useMemo(() => roundDomainToWeeks(domain), [domain]);
 
-  // weeks data limited to domain
+  // Build weekly ticks and computed virtual width (fixed density per ref)
   const weeks = useMemo(() => buildWeeklyTicks(roundedDomain), [roundedDomain]);
-
-  // Compute virtual width based on time span mapped by a consistent weekly column width
   const weeksCount = Math.max(1, weeks.length);
   const virtualTimelineWidth = weeksCount * WEEK_COL_WIDTH;
 
-  // use a time scale that maps the domain to the virtual timeline width.
+  // time scale maps domain to virtual width keeping strict density
   const xScale = useMemo(() => {
     return makeTimeScale(roundedDomain[0], roundedDomain[1], virtualTimelineWidth);
   }, [roundedDomain, virtualTimelineWidth]);
 
-  // viewport width used by header and svg container
-  const timelineWidth = Math.min(virtualTimelineWidth, viewportTimelineWidth);
-
-  // Drag logic
-  const dragState = useRef({ type: null, taskId: null, offsetMs: 0 });
-
-  function updateTask(id, updater) {
-    const next = tasks.map((t) => (t.id === id ? { ...t, ...updater(t) } : t));
-    onTasksChange?.(next);
-  }
-
-  function onMouseDownBar(e, task, edge) {
-    e.stopPropagation();
-    const x0 = xScale(task.start);
-    const offset = e.clientX - (x0 + (edge === "right" ? xScale(task.end) - xScale(task.start) : 0));
-    dragState.current = {
-      type: edge || "move",
-      taskId: task.id,
-      offsetPx: offset
-    };
-    window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("mouseup", onMouseUp, { once: true });
-  }
-
-  function onMouseMove(e) {
-    const state = dragState.current;
-    if (!state.taskId) return;
-    const task = tasks.find((t) => t.id === state.taskId);
-    if (!task) return;
-
-    const px = e.clientX - (svgRef.current?.getBoundingClientRect().left || 0);
-    const pxClamped = Math.max(0, Math.min(virtualTimelineWidth, px - state.offsetPx));
-    // Snap to day to match grid
-    const dateAtCursor = startOfDay(xScale.invert(pxClamped));
-    if (state.type === "move") {
-      const duration = differenceInCalendarDays(task.end, task.start);
-      const newStart = dateAtCursor;
-      const newEnd = addDays(newStart, Math.max(1, duration));
-      updateTask(task.id, () => ({ start: newStart, end: newEnd }));
-    } else if (state.type === "left") {
-      // Resize left
-      let newStart = dateAtCursor;
-      if (newStart >= task.end) {
-        newStart = addDays(task.end, -1);
-      }
-      updateTask(task.id, () => ({ start: newStart, end: task.end }));
-    } else if (state.type === "right") {
-      let newEnd = dateAtCursor;
-      if (newEnd <= task.start) {
-        newEnd = addDays(task.start, 1);
-      }
-      updateTask(task.id, () => ({ start: task.start, end: newEnd }));
-    }
-  }
-
-  function onMouseUp() {
-    dragState.current = { type: null, taskId: null, offsetMs: 0 };
-    window.removeEventListener("mousemove", onMouseMove);
-  }
-
-  // Inline edit state
-  const [editingId, setEditingId] = useState(null);
-  const [tempName, setTempName] = useState("");
-
-  function handleNameDblClick(task) {
-    setEditingId(task.id);
-    setTempName(task.name);
-  }
-
-  function commitName(task) {
-    const name = tempName.trim();
-    if (name && name !== task.name) {
-      updateTask(task.id, () => ({ name }));
-    }
-    setEditingId(null);
-  }
-
   // Render
   return (
     <div className="gantt-wrapper" ref={wrapperRef}>
-      {/* Tiered header: top blue band with weeks labels, grid aligned */}
+      {/* Top header band with weekly labels */}
       <div className="gantt-header">
         <div className="left">Task</div>
         <div className="timeline">
-          <div className="timeline-scale" style={{ width: Math.max(timelineWidth, virtualTimelineWidth) }}>
-            {weeks.map((w, i) => (
+          <div className="timeline-scale" style={{ width: virtualTimelineWidth }}>
+            {weeks.map((_, i) => (
               <div key={i} className="timeline-tick">
                 {`W${i + 1}`}
               </div>
@@ -156,76 +70,54 @@ export default function GanttChart({
       </div>
 
       <div className="gantt-body">
+        {/* Left task names */}
         <div className="gantt-left">
           {tasks.map((t) => (
             <div className="row" key={t.id} title={t.name}>
-              {editingId === t.id ? (
-                <input
-                  className="inline-input"
-                  autoFocus
-                  value={tempName}
-                  onChange={(e) => setTempName(e.target.value)}
-                  onBlur={() => commitName(t)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") commitName(t);
-                    if (e.key === "Escape") setEditingId(null);
-                  }}
-                />
-              ) : (
-                <div
-                  className="task-name"
-                  onDoubleClick={() => handleNameDblClick(t)}
-                >
-                  {t.name}
-                </div>
-              )}
+              <div className="task-name">{t.name}</div>
             </div>
           ))}
         </div>
 
+        {/* Right timeline */}
         <div className="gantt-right">
           <svg ref={svgRef} width={virtualTimelineWidth} height={chartHeight}>
             {/* Weekly vertical grid lines */}
             {weeks.map((w, i) => {
               const x = xScale(w);
-              return <line key={`v${i}`} x1={x} y1={0} x2={x} y2={chartHeight} stroke="rgba(229,231,235,0.8)" />;
-            })}
-            {/* Horizontal row lines */}
-            {tasks.map((_, idx) => {
-              const y = (idx + 1) * ROW_HEIGHT;
-              return <line key={`h${idx}`} x1={0} y1={y} x2={virtualTimelineWidth} y2={y} stroke="rgba(229,231,235,0.8)" />;
+              return <line key={`v${i}`} x1={x} y1={0} x2={x} y2={chartHeight} className="grid-v" />;
             })}
 
-            {/* Today marker */}
+            {/* Horizontal row dividers */}
+            {tasks.map((_, idx) => {
+              const y = (idx + 1) * ROW_HEIGHT;
+              return <line key={`h${idx}`} x1={0} y1={y} x2={virtualTimelineWidth} y2={y} className="grid-h" />;
+            })}
+
+            {/* Optional today marker if inside domain */}
             {(() => {
               const today = startOfDay(new Date());
               if (today >= roundedDomain[0] && today <= roundedDomain[1]) {
                 const x = xScale(today);
-                return <line x1={x} y1={0} x2={x} y2={chartHeight} stroke="#EF4444" strokeWidth="2" strokeDasharray="4 4" />;
+                return <line x1={x} y1={0} x2={x} y2={chartHeight} className="today" />;
               }
               return null;
             })()}
 
-            {/* Bars and milestones */}
+            {/* Task bars and milestone stars */}
             {tasks.map((t, idx) => {
               const y = idx * ROW_HEIGHT + (ROW_HEIGHT - BAR_HEIGHT) / 2;
               const x = xScale(t.start);
               const w = Math.max(8, xScale(t.end) - xScale(t.start));
-              const progressWidth = Math.max(0, Math.min(100, t.progress || 0)) / 100 * w;
-              const isMilestone = differenceInCalendarDays(t.end, t.start) <= 0;
+              const isMilestone = differenceInCalendarDays(t.end, t.start) <= 0 || looksLikeMilestone(t);
 
               if (isMilestone) {
-                const cx = x + WEEK_COL_WIDTH / 2 * 0 + 0; // center at start day
-                const cy = y + BAR_HEIGHT / 2 + 2;
-                const r = 8;
+                const cx = x + w; // place star at end
+                const cy = y + BAR_HEIGHT / 2;
+                const points = starPoints(cx, cy, 5, 8, 4);
                 return (
-                  <g key={t.id} transform={`translate(${x}, ${y})`} onMouseDown={(e)=>onMouseDownBar(e,t,"move")}>
-                    <polygon
-                      points={`${0},${cy} ${r},${cy - r} ${0},${cy - 2*r} ${-r},${cy - r}`}
-                      fill="#10B981"
-                      stroke="#0f766e"
-                      strokeWidth="1"
-                    />
+                  <g key={t.id}>
+                    <polygon points={points} fill="#10B981" stroke="#0f766e" strokeWidth="1" />
                     <title>{t.name}</title>
                   </g>
                 );
@@ -241,30 +133,9 @@ export default function GanttChart({
                     height={BAR_HEIGHT}
                     rx={6}
                     ry={6}
-                    onMouseDown={(e) => onMouseDownBar(e, t, "move")}
                   />
-                  <rect className="progress" x={0} y={0} width={progressWidth} height={BAR_HEIGHT} />
-                  <text className="label" x={8} y={BAR_HEIGHT / 2 + 4} fill="#fff">
-                    {t.name}
-                  </text>
-
-                  {/* Handles */}
-                  <rect
-                    className="handle left"
-                    x={-3}
-                    y={0}
-                    width={6}
-                    height={BAR_HEIGHT}
-                    onMouseDown={(e) => onMouseDownBar(e, t, "left")}
-                  />
-                  <rect
-                    className="handle right"
-                    x={w - 3}
-                    y={0}
-                    width={6}
-                    height={BAR_HEIGHT}
-                    onMouseDown={(e) => onMouseDownBar(e, t, "right")}
-                  />
+                  {/* label hidden in CSS for pixel parity; still include title for a11y */}
+                  <title>{t.name}</title>
                 </g>
               );
             })}
@@ -272,9 +143,54 @@ export default function GanttChart({
         </div>
       </div>
       <div className="info">
-        {tasks.length === 0 ? "Use Upload CSV to load tasks." : `${tasks.length} task(s). Drag to move, resize edges to adjust duration, double-click names to edit.`}
+        {tasks.length === 0 ? "Loading CSV data..." : `${tasks.length} task(s).`}
       </div>
     </div>
+  );
+}
+
+/**
+ * PUBLIC_INTERFACE
+ * starPoints
+ * Returns a polygon points string for a star centered at (cx,cy).
+ */
+function starPoints(cx, cy, spikes = 5, outerRadius = 8, innerRadius = 4) {
+  const step = Math.PI / spikes;
+  let rotation = Math.PI / 2 * 3;
+  let x = cx;
+  let y = cy;
+  const points = [];
+  for (let i = 0; i < spikes; i++) {
+    x = cx + Math.cos(rotation) * outerRadius;
+    y = cy + Math.sin(rotation) * outerRadius;
+    points.push(`${x},${y}`);
+    rotation += step;
+
+    x = cx + Math.cos(rotation) * innerRadius;
+    y = cy + Math.sin(rotation) * innerRadius;
+    points.push(`${x},${y}`);
+    rotation += step;
+  }
+  return points.join(" ");
+}
+
+/**
+ * Consider strings like "Release", "Go-Live" as milestones.
+ */
+function looksLikeMilestone(t) {
+  const raw = t.raw || {};
+  const blob = [
+    t.name || "",
+    raw.Activities || "",
+    raw.Deliverables || "",
+    raw["Activities"] || "",
+    raw["Deliverables"] || ""
+  ].join(" ").toLowerCase();
+
+  return (
+    blob.includes("release") ||
+    blob.includes("go-live") ||
+    blob.includes("milestone")
   );
 }
 
@@ -293,5 +209,3 @@ function useContainerSize(ref) {
   }, [ref]);
   return size;
 }
-
-

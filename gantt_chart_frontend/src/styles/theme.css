@@ -1,20 +1,24 @@
 :root {
-  --primary: #2563EB;
+  --primary: #0B3A82; /* deep blue header band to match reference */
   --secondary: #F59E0B;
   --error: #EF4444;
-  --bg: #f9fafb;
+  --bg: #ffffff;
   --surface: #ffffff;
   --text: #111827;
   --muted: #6b7280;
   --border: #e5e7eb;
   --shadow: 0 1px 2px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.1);
+
+  /* Gantt specific */
+  --left-col-width: 260px;
+  --row-height: 46px;
+  --bar-height: 20px;
+  --week-col-width: 80px; /* maintain fixed weekly density like reference */
 }
 
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; }
-html, body {
-  overflow: hidden; /* prevent body-level infinite scroll loops, confine scroll to chart panes */
-}
+html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); overflow: hidden; }
 
 .app-shell {
   display: flex;
@@ -54,19 +58,7 @@ html, body {
   cursor: pointer;
   transition: all .2s ease;
 }
-
-.btn.primary {
-  background: var(--primary);
-  border-color: rgba(0,0,0,0);
-  color: #fff;
-}
-
-.btn.secondary {
-  background: var(--secondary);
-  color: #111827;
-  border-color: rgba(0,0,0,0);
-}
-
+.btn.primary { background: var(--primary); border-color: transparent; color: #fff; }
 .btn:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
 
 .content {
@@ -90,11 +82,12 @@ html, body {
   flex-direction: column;
 }
 
+/* Header band: deep blue strip with week labels, white separators */
 .gantt-header {
   display: grid;
-  grid-template-columns: 260px 1fr;
+  grid-template-columns: var(--left-col-width) 1fr;
   border-bottom: 1px solid var(--border);
-  background: #1E3A8A; /* deep blue band similar to reference top */
+  background: var(--primary);
   color: #fff;
 }
 
@@ -104,39 +97,43 @@ html, body {
   font-weight: 600;
   color: #E5E7EB;
   border-right: 1px solid rgba(255,255,255,0.2);
-  background: #1E3A8A;
+  background: var(--primary);
 }
->>>>>>> REPLACE   
-```
 
-````edit file="interactive-gantt-chart-editor-43702-43711/gantt_chart_frontend/src/styles/theme.css"      
-<<<<<<< SEARCH
 .gantt-header .timeline {
-  display: flex;
-  padding: 8px 0;
-  font-size: 12px;
-  color: var(--muted);
-}
-=======
-.gantt-header .timeline {
-  display: block;            /* allow inner scale to define width */
-  padding: 8px 0;
+  display: block;            /* inner scale defines true width */
+  padding: 0;
   font-size: 12px;
   color: #ffffff;
-  overflow-x: auto;          /* enable horizontal scroll if virtual width exceeds viewport */
+  overflow-x: auto;          /* allow horizontal scroll to keep weekly density */
   overflow-y: hidden;
 }
 
-.gantt-header .timeline {
-  display: flex;
-  padding: 8px 0;
-  font-size: 12px;
-  color: var(--muted);
+/* Define a grid of week columns to mirror reference */
+.timeline-scale {
+  position: relative;
+  height: 42px;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: var(--week-col-width);
+  align-items: center;
 }
 
+.timeline-tick {
+  text-align: center;
+  font-size: 12px;
+  color: #ffffff;
+  padding: 6px 0;
+  border-left: 1px solid rgba(255,255,255,0.5); /* white separators like reference */
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+.timeline-tick:first-child { border-left-color: transparent; }
+
+/* Body panes */
 .gantt-body {
   display: grid;
-  grid-template-columns: 260px 1fr;
+  grid-template-columns: var(--left-col-width) 1fr;
   min-height: 0;
   flex: 1;
   overflow: hidden; /* ensure only inner columns scroll */
@@ -151,22 +148,21 @@ html, body {
 
 .gantt-right {
   position: relative;
-  overflow: auto;
+  overflow: auto; /* vertical + horizontal as needed */
   max-height: 100%;
-  /* Grid lines are rendered via SVG; remove CSS background tiling that can suggest infinite area */
   background: var(--surface);
-  contain: content;          /* isolate layout/paint to prevent unintended propagation */
+  contain: content;
 }
 
+/* Rows in left pane */
 .row {
   display: flex;
   align-items: center;
-  height: 44px;
+  height: var(--row-height);
   border-bottom: 1px solid var(--border);
   padding: 0 12px;
   font-size: 14px;
 }
-
 .task-name {
   width: 100%;
   overflow: hidden;
@@ -174,78 +170,24 @@ html, body {
   white-space: nowrap;
 }
 
-.inline-input {
-  width: 100%;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 4px 6px;
-  outline: none;
-  font: inherit;
+/* Static bars (SVG). Match light lavender w/ subtle stroke, rounded corners */
+svg .bar {
+  fill: #C9C8FD;       /* soft indigo/purple like reference */
+  stroke: #A5B4FC;
 }
+svg .progress { display: none; } /* no progress overlay in static view */
+svg .label { display: none; }    /* no inline labels to match reference */
+svg .handle { display: none; }   /* disable interactive handles */
 
-.bar {
-  position: absolute;
-  height: 20px;
-  border-radius: 10px;
-  background: #C7D2FE; /* soft indigo like ref bars */
-  border: 1px solid #A5B4FC;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
-  color: #1f2937;
-  display: flex;
-  align-items: center;
-  padding-left: 8px;
-  font-size: 12px;
-  cursor: grab;
-}
+/* Grid lines should be subtle, similar to reference */
+svg line.grid-v { stroke: rgba(17,24,39,0.08); }  /* vertical weekly */
+svg line.grid-h { stroke: rgba(17,24,39,0.08); }  /* horizontal rows */
 
-.bar:active { cursor: grabbing; }
-
-.bar .progress {
-  position: absolute;
-  left: 0; top: 0; bottom: 0;
-  width: 0%;
-  background: rgba(37,99,235,0.35);
-  border-radius: 10px 0 0 10px;
-  z-index: 0;
-}
-
-.bar .label {
-  position: relative;
-  z-index: 1;
-  pointer-events: none;
-}
-
-.handle {
-  position: absolute;
-  top: 0;
-  width: 6px;
-  height: 100%;
-  background: rgba(255,255,255,0.8);
-  border-radius: 6px;
-  cursor: ew-resize;
-}
-
-.handle.left { left: 0; }
-.handle.right { right: 0; }
-
-.timeline-scale {
-  position: relative;
-  height: 36px;
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: 80px; /* week width */
-  align-items: center;
-  overflow: hidden; /* keep header from overflowing container visually */
-}
-
-.timeline-tick {
-  text-align: center;
-  font-size: 12px;
-  color: #ffffff;
-  padding: 6px 0;
-  border-left: 1px solid rgba(255,255,255,0.25);
-  font-weight: 600;
-  letter-spacing: 0.2px;
+/* Today marker (if rendered) */
+svg line.today {
+  stroke: var(--error);
+  stroke-width: 2;
+  stroke-dasharray: 4 4;
 }
 
 .info {
