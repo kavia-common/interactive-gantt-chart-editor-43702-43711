@@ -1,0 +1,4 @@
+{
+    "command": "npm install",
+    "working_directory": "/home/kavia/workspace/code-generation/interactive-gantt-chart-editor-43702-43711/gantt_chart_frontend"
+}
