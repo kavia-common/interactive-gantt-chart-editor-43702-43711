@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as d3 from "d3";
-import { addDays, differenceInCalendarDays, format, startOfDay } from "date-fns";
+import { addDays, differenceInCalendarDays, startOfDay } from "date-fns";
 import { daysBetweenInclusive, fitDomainToTasks, makeTimeScale, buildWeeklyTicks, roundDomainToWeeks } from "../utils/time";
 
 // Dimensions tuned to reference
@@ -37,18 +37,32 @@ export default function GanttChart({
   }, [tasks]);
 
   const [width, height] = useContainerSize(wrapperRef);
-  const timelineWidth = Math.max(LEFT_COL_WIDTH, width - LEFT_COL_WIDTH);
-  const chartHeight = Math.max(tasks.length * ROW_HEIGHT, height - 72);
+
+  // Compute viewport and virtual canvas dimensions
+  const viewportTimelineWidth = Math.max(LEFT_COL_WIDTH, width - LEFT_COL_WIDTH);
+  const rowCount = tasks.length || 1;
+  const headerHeight = 36; // matches .timeline-scale height
+  const virtualHeight = headerHeight + rowCount * ROW_HEIGHT;
+  const viewportHeight = Math.max(virtualHeight, Math.max(240, height - 72)); // ensure reasonable min height
+  const chartHeight = rowCount * ROW_HEIGHT;
 
   // Domain rounded to full weeks to align grid
   const roundedDomain = useMemo(() => roundDomainToWeeks(domain), [domain]);
 
-  const xScale = useMemo(() => {
-    return makeTimeScale(roundedDomain[0], roundedDomain[1], timelineWidth);
-  }, [roundedDomain, timelineWidth]);
-
-  // Build weekly ticks for header/grid
+  // weeks data limited to domain
   const weeks = useMemo(() => buildWeeklyTicks(roundedDomain), [roundedDomain]);
+
+  // Compute virtual width based on time span mapped by a consistent weekly column width
+  const weeksCount = Math.max(1, weeks.length);
+  const virtualTimelineWidth = weeksCount * WEEK_COL_WIDTH;
+
+  // use a time scale that maps the domain to the virtual timeline width.
+  const xScale = useMemo(() => {
+    return makeTimeScale(roundedDomain[0], roundedDomain[1], virtualTimelineWidth);
+  }, [roundedDomain, virtualTimelineWidth]);
+
+  // viewport width used by header and svg container
+  const timelineWidth = Math.min(virtualTimelineWidth, viewportTimelineWidth);
 
   // Drag logic
   const dragState = useRef({ type: null, taskId: null, offsetMs: 0 });
@@ -78,7 +92,7 @@ export default function GanttChart({
     if (!task) return;
 
     const px = e.clientX - (svgRef.current?.getBoundingClientRect().left || 0);
-    const pxClamped = Math.max(0, Math.min(timelineWidth, px - state.offsetPx));
+    const pxClamped = Math.max(0, Math.min(virtualTimelineWidth, px - state.offsetPx));
     // Snap to day to match grid
     const dateAtCursor = startOfDay(xScale.invert(pxClamped));
     if (state.type === "move") {
@@ -131,7 +145,7 @@ export default function GanttChart({
       <div className="gantt-header">
         <div className="left">Task</div>
         <div className="timeline">
-          <div className="timeline-scale" style={{ width: timelineWidth }}>
+          <div className="timeline-scale" style={{ width: Math.max(timelineWidth, virtualTimelineWidth) }}>
             {weeks.map((w, i) => (
               <div key={i} className="timeline-tick">
                 {`W${i + 1}`}
@@ -170,7 +184,7 @@ export default function GanttChart({
         </div>
 
         <div className="gantt-right">
-          <svg ref={svgRef} width={timelineWidth} height={chartHeight}>
+          <svg ref={svgRef} width={virtualTimelineWidth} height={chartHeight}>
             {/* Weekly vertical grid lines */}
             {weeks.map((w, i) => {
               const x = xScale(w);
@@ -179,7 +193,7 @@ export default function GanttChart({
             {/* Horizontal row lines */}
             {tasks.map((_, idx) => {
               const y = (idx + 1) * ROW_HEIGHT;
-              return <line key={`h${idx}`} x1={0} y1={y} x2={timelineWidth} y2={y} stroke="rgba(229,231,235,0.8)" />;
+              return <line key={`h${idx}`} x1={0} y1={y} x2={virtualTimelineWidth} y2={y} stroke="rgba(229,231,235,0.8)" />;
             })}
 
             {/* Today marker */}
