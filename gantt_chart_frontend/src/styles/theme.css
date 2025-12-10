@@ -1,0 +1,221 @@
+:root {
+  --primary: #2563EB;
+  --secondary: #F59E0B;
+  --error: #EF4444;
+  --bg: #f9fafb;
+  --surface: #ffffff;
+  --text: #111827;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --shadow: 0 1px 2px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.1);
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.toolbar .title {
+  font-weight: 600;
+  margin-right: auto;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: all .2s ease;
+}
+
+.btn.primary {
+  background: var(--primary);
+  border-color: rgba(0,0,0,0);
+  color: #fff;
+}
+
+.btn.secondary {
+  background: var(--secondary);
+  color: #111827;
+  border-color: rgba(0,0,0,0);
+}
+
+.btn:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  height: calc(100vh - 60px);
+}
+
+.gantt-wrapper {
+  flex: 1;
+  min-height: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.gantt-header {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(37,99,235,0.08), rgba(249,250,251,1));
+}
+
+.gantt-header .left {
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  border-right: 1px solid var(--border);
+}
+
+.gantt-header .timeline {
+  display: flex;
+  padding: 8px 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.gantt-body {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  min-height: 0;
+  flex: 1;
+}
+
+.gantt-left {
+  border-right: 1px solid var(--border);
+  overflow: auto;
+}
+
+.gantt-right {
+  position: relative;
+  overflow: auto;
+  background:
+    linear-gradient(90deg, rgba(229,231,235,.6) 1px, transparent 1px) 0 0 / 80px 100%,
+    linear-gradient(180deg, rgba(229,231,235,.6) 1px, transparent 1px) 0 0 / 100% 40px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  border-bottom: 1px solid var(--border);
+  padding: 0 12px;
+  font-size: 14px;
+}
+
+.task-name {
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inline-input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 6px;
+  outline: none;
+  font: inherit;
+}
+
+.bar {
+  position: absolute;
+  height: 22px;
+  border-radius: 6px;
+  background: var(--primary);
+  box-shadow: var(--shadow);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  padding-left: 8px;
+  font-size: 12px;
+  cursor: grab;
+}
+
+.bar:active { cursor: grabbing; }
+
+.bar .progress {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 0%;
+  background: rgba(245,158,11,0.9);
+  border-radius: 6px 0 0 6px;
+  z-index: 0;
+}
+
+.bar .label {
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.handle {
+  position: absolute;
+  top: 0;
+  width: 6px;
+  height: 100%;
+  background: rgba(255,255,255,0.8);
+  border-radius: 6px;
+  cursor: ew-resize;
+}
+
+.handle.left { left: 0; }
+.handle.right { right: 0; }
+
+.timeline-scale {
+  position: relative;
+  height: 36px;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 80px;
+  align-items: end;
+}
+
+.timeline-tick {
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+  padding-bottom: 4px;
+  border-left: 1px solid var(--border);
+}
+
+.info {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 0 8px 8px;
+}
